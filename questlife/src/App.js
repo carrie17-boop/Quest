@@ -392,7 +392,7 @@ function ProfileView({ profile, cats, onUpdate, todoistToken, onSyncTodoist, syn
           <div style={{color:"#9b72cf",fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:2}}>ACTIVE QUESTS ({profile.quests.length})</div>
           <div style={{display:"flex",gap:6}}>
             {todoistToken&&<button onClick={onSyncTodoist} disabled={syncing} style={sb({background:"rgba(219,75,75,0.1)",border:"1px solid rgba(219,75,75,0.28)",color:"#e07b5a",fontSize:11,padding:"4px 10px"})}>{syncing?"⟳...":"⟳ Todoist"}</button>}
-            <button onClick={()=>setShowAdd(v=>!v)} style={sb({background:"rgba(155,114,207,0.12)",border:"1px solid rgba(155,114,207,0.3)",color:"#9b72cf",fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:1,padding:"4px 12px"})}>+ ADD QUEST</button>
+            <button onClick={()=>setShowAdd(v=>!v)} style={sb({background:"rgba(155,114,207,0.12)",border:"1px solid rgba(155,114,207,0.3)",color:"#9b72cf",fontFamily:"'Cinzel',serif",fontSize:11,letterSpacing:1,padding:"4px 12px"})}>
           </div>
         </div>
         {showAdd&&<AddQuestPanel cats={cats} onAdd={q=>onUpdate({...profile,quests:[...profile.quests,q]})} onClose={()=>setShowAdd(false)} todoistToken={todoistToken} profileName={profile.name}/>}
