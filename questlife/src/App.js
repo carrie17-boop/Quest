@@ -58,11 +58,32 @@ const mkProfile = (name,avatar,puzzles,quests) => ({
   quests,completedQuests:[],customPuzzles:puzzles,
 });
 
-// ─── Todoist helpers ───────────────────────────────────────────────────────────
-const TD="https://api.todoist.com/rest/v2";
-const tdGet  =async(tok,path)=>{const r=await fetch(`${TD}${path}`,{headers:{Authorization:`Bearer ${tok}`}});if(!r.ok)throw new Error(r.status);return r.json();};
-const tdClose=async(tok,id)=>fetch(`${TD}/tasks/${id}/close`,{method:"POST",headers:{Authorization:`Bearer ${tok}`}});
-const tdAdd  =async(tok,content,labels=[])=>{const r=await fetch(`${TD}/tasks`,{method:"POST",headers:{Authorization:`Bearer ${tok}`,"Content-Type":"application/json"},body:JSON.stringify({content,labels})});if(!r.ok)throw new Error(r.status);return r.json();};
+// --- Todoist helpers using Sync API (no CORS issues) ---
+const TD_SYNC="https://api.todoist.com/sync/v9";
+const tdGet=async(tok,path)=>{
+  const fd=new FormData();
+  fd.append("token",tok);
+  fd.append("sync_token","*");
+  fd.append("resource_types","[\"items\"]");
+  const r=await fetch(TD_SYNC+"/sync",{method:"POST",body:fd});
+  if(!r.ok)throw new Error(r.status);
+  const d=await r.json();
+  return (d.items||[]).filter(i=>!i.checked&&!i.is_deleted).map(i=>({id:String(i.id),content:i.content,labels:i.labels||[]}));
+};
+const tdClose=async(tok,id)=>{
+  const fd=new FormData();
+  fd.append("token",tok);
+  fd.append("commands",JSON.stringify([{type:"item_complete",uuid:crypto.randomUUID(),args:{id:String(id)}}]));
+  return fetch(TD_SYNC+"/sync",{method:"POST",body:fd});
+};
+const tdAdd=async(tok,content,labels=[])=>{
+  const fd=new FormData();
+  fd.append("token",tok);
+  fd.append("commands",JSON.stringify([{type:"item_add",uuid:crypto.randomUUID(),temp_id:crypto.randomUUID(),args:{content,labels}}]));
+  const r=await fetch(TD_SYNC+"/sync",{method:"POST",body:fd});
+  if(!r.ok)throw new Error(r.status);
+  return r.json();
+};
 const LMAP={cleaning:"cleaning",cooking:"cooking",reading:"reading",fitness:"fitness",learning:"learning",errands:"todo",todo:"todo"};
 function guessCategory(task,cats){const n=task.content.toLowerCase();for(const k of Object.keys(cats))if(n.includes(k))return k;for(const l of(task.labels||[])){const m=LMAP[l.toLowerCase()];if(m&&cats[m])return m;}return Object.keys(cats)[0];}
 
@@ -491,8 +512,8 @@ export default function App(){
     try{
       const tasks=await tdGet(state.todoistToken,"/tasks");
       const prof=state.profiles.carrie;
-      const exIds=new Set([...prof.quests.map(q=>q.todoistId),...prof.completedQuests.map(q=>q.todoistId)].filter(Boolean));
-      const fresh=tasks.filter(t=>!exIds.has(t.id)).map(t=>({id:Date.now()+Math.random(),name:t.content,category:guessCategory(t,CARRIE_CATEGORIES),todoistId:t.id,flavor:null}));
+      const exIds=new Set([...prof.quests.map(q=>String(q.todoistId)),...prof.completedQuests.map(q=>String(q.todoistId))].filter(Boolean));
+      const fresh=tasks.filter(t=>!exIds.has(String(t.id))).map(t=>({id:Date.now()+Math.random(),name:t.content,category:guessCategory(t,CARRIE_CATEGORIES),todoistId:String(t.id),flavor:null}));
       if(fresh.length>0) upd("carrie",{...prof,quests:[...prof.quests,...fresh]});
       setState(s=>({...s,lastSync:Date.now()}));
     }catch(_){alert("Todoist sync failed. Check your API token.");}
